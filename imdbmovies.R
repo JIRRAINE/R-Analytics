@@ -1,4 +1,6 @@
 ############  Web Scraping IMDB TV SHOWS #################
+#GROUP: 2
+#OBAS,MATIAS,OCTAVIANO,PINEDA
 
 # install.packages("rvest")
 # install.packages("httr")
@@ -20,16 +22,61 @@ library(kableExtra)
 polite::use_manners(save_as = 'polite_scrape.R')
 
 #Specifying the url for desired website to be scraped
-url <- 'https://www.imdb.com/chart/toptv/?ref_=nv_tvv_250'
+url <- 'https://www.imdb.com/chart/tvmeter/?ref_=nv_tvv_mptv'
 
 # asking permission to scrape
-session <- bow("https://www.imdb.com/chart/toptv/?ref_=nv_tvv_250",
+session <- bow(url,
                user_agent = "Educational")
 session
 
 #creating objects for the dataset
 rank_title <- character(50)
 links <- character(50)
+
+
+title_list <- scrape(session) %>%
+  html_nodes('h3.ipc-title__text') %>%
+  html_text
+title_list
+
+rank_list <- scrape(session) %>%
+  html_nodes('div.sc-94da5b1b-0.soBIM.meter-const-ranking.sc-479faa3c-6.glWBvR.cli-meter-title-header') %>%
+  html_text
+rank_list
+
+rating <- scrape(session) %>%
+  html_nodes('span.ipc-rating-star.ipc-rating-star--base.ipc-rating-star--imdb.ratingGroup--imdb-rating') %>%
+  html_text
+rating
+
+numberofvoters <- scrape(session) %>%
+  html_nodes('') %>%
+  html_text
+numberofvoters
+
+episodes <- scrape(session) %>%
+  html_nodes('span.sc-479faa3c-8.bNrEFi.cli-title-metadata-item') %>%
+  html_text
+episodes
+
+year <- scrape(session) %>%
+  html_nodes('sc-479faa3c-8 bNrEFi cli-title-metadata-item') %>%
+  html_text
+year
+
+min_length <- min(c(length (rank), length (title), length (rating), length (numberofvoters), length (episodes), length (year)))
+
+
+data <- data.frame(
+  Rank = seq(1:50),
+  Title = title[1:50],
+  Rating = rating[1:50],
+  NumberofVoters = numberofvoters[1:50],
+  Episodes = episodes[1:50],
+  Year = (sapply(year[1:50] function(x) if (grepl("^\\d+$", x)) as.integer(x) esle NA))
+)
+View(data)
+
 
 # scraping in polite way using the h3 element
 title_list <- scrape(session) %>%
@@ -43,7 +90,7 @@ class(title_list)
 # simple data cleaning and processing
 # the tv shows list only contains 50 titles which is in index[2] to index[51]
 
-title_list_sub <- as.data.frame(title_list[2:51])
+title_list_sub <- as.data.frame(title_list[1:50])
 
 head(title_list_sub)
 tail(title_list_sub)
@@ -59,7 +106,7 @@ split_df <- data.frame(do.call(rbind,split_df))
 split_df <- split_df[-c(3:4)] 
 
 #renaming column 1 and 2
-colnames(split_df) <- c("ranks","title","review","rate") 
+colnames(split_df) <- c("title","ranks","review","rate","episodes") 
 
 # structure of splif_df
 str(split_df) 
@@ -80,7 +127,7 @@ head(link_list)
 
 # simple cleaning and append 'https://imdb.com'
 
-link_list[45:50]
+link_list[1:50]
 
 link <- as.vector(link_list[1:50])
 names(link) <- "links"
@@ -152,10 +199,10 @@ for (row in 1:2) {
   
   #store results
   # Store the results
-  imdb_top_50[current_row,1] <- rating
-  imdb_top_50[current_row,2] <- votecount
-  imdb_top_50[current_row,3] <- movie_desc
-  imdb_top_50[current_row,4] <- meta_score
+  imdb_top_50[current_row,1] <- rank
+  imdb_top_50[current_row,2] <- title
+  imdb_top_50[current_row,3] <- link
+  imdb_top_50[current_row,4] <- rating
   
   
   # Move to the next row
