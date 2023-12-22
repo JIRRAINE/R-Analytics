@@ -1,7 +1,5 @@
-############  Web Scraping IMDB TV SHOWS #################
-#GROUP: 2
-#OBAS,MATIAS,OCTAVIANO,PINEDA
-
+############  Web Scraping IMDB TV Shows #################
+#GROUP: OCTAVIANO,OBAS,PINEDA,MATIAS
 # install.packages("rvest")
 # install.packages("httr")
 # install.packages("polite")
@@ -22,7 +20,7 @@ library(kableExtra)
 polite::use_manners(save_as = 'polite_scrape.R')
 
 #Specifying the url for desired website to be scraped
-url <- 'https://www.imdb.com/chart/tvmeter/?ref_=nv_tvv_mptv'
+url <- 'https://www.imdb.com/chart/toptv/?ref_=nv_tvv_250'
 
 # asking permission to scrape
 session <- bow(url,
@@ -32,51 +30,9 @@ session
 #creating objects for the dataset
 rank_title <- character(50)
 links <- character(50)
-
-
-title_list <- scrape(session) %>%
-  html_nodes('h3.ipc-title__text') %>%
-  html_text
-title_list
-
-rank_list <- scrape(session) %>%
-  html_nodes('div.sc-94da5b1b-0.soBIM.meter-const-ranking.sc-479faa3c-6.glWBvR.cli-meter-title-header') %>%
-  html_text
-rank_list
-
-rating <- scrape(session) %>%
-  html_nodes('span.ipc-rating-star.ipc-rating-star--base.ipc-rating-star--imdb.ratingGroup--imdb-rating') %>%
-  html_text
-rating
-
-numberofvoters <- scrape(session) %>%
-  html_nodes('') %>%
-  html_text
-numberofvoters
-
-episodes <- scrape(session) %>%
-  html_nodes('span.sc-479faa3c-8.bNrEFi.cli-title-metadata-item') %>%
-  html_text
-episodes
-
-year <- scrape(session) %>%
-  html_nodes('sc-479faa3c-8 bNrEFi cli-title-metadata-item') %>%
-  html_text
-year
-
-min_length <- min(c(length (rank), length (title), length (rating), length (numberofvoters), length (episodes), length (year)))
-
-
-data <- data.frame(
-  Rank = seq(1:50),
-  Title = title[1:50],
-  Rating = rating[1:50],
-  NumberofVoters = numberofvoters[1:50],
-  Episodes = episodes[1:50],
-  Year = (sapply(year[1:50] function(x) if (grepl("^\\d+$", x)) as.integer(x) esle NA))
-)
-View(data)
-
+votecount <- character(50)
+episodes <- character(50)
+year <- character(50)
 
 # scraping in polite way using the h3 element
 title_list <- scrape(session) %>%
@@ -88,13 +44,13 @@ title_list <- scrape(session) %>%
 class(title_list)
 
 # simple data cleaning and processing
-# the tv shows list only contains 50 titles which is in index[2] to index[51]
+# the movie list only contains 50 titles which is in index[2] to index[51]
 
-title_list_sub <- as.data.frame(title_list[1:50])
+title_list_sub <- as.data.frame(title_list[2:51])
 
 head(title_list_sub)
 tail(title_list_sub)
-#changing column name to ranks
+#changing column names to ranks
 colnames(title_list_sub) <- "ranks"
 
 #split the string(rank and title)
@@ -105,22 +61,22 @@ split_df <- data.frame(do.call(rbind,split_df))
 # deleting columns 3 and 4 since it duplicated the columns
 split_df <- split_df[-c(3:4)] 
 
-#renaming column 1 and 2
-colnames(split_df) <- c("title","ranks","review","rate","episodes") 
+#renaming column 1 and 5
+colnames(split_df) <- c("ranks","title") 
 
 # structure of splif_df
 str(split_df) 
 class(split_df)
 head(split_df)
 
-rank_title_ratings_episodes_year <- data.frame(
-  rank_title_ratings_episodes_year = split_df)
+rank_title <- data.frame(
+  rank_title = split_df)
 
-write.csv(rank_title_ratings_episodes_year,file = "title.csv")
+write.csv(rank_title,file = "title.csv")
 
 # extracting for link of every movies
 link_list <- scrape(session) %>%
-  html_nodes('a.ipc-title-link-wrapper') %>% 
+  html_nodes('.ipc-title-link-wrapper') %>% 
   html_attr('href') 
 
 head(link_list)
@@ -137,18 +93,18 @@ tail(link)
 
 # append https://imdb.com to each of the links extracted
 for (i in 1:50) {
-  link[i] <- paste0("https://imdb.com", class="ipc-metadata-list ipc-metadata-list--dividers-between sc-9d2f6de0-0 iMNUXk compact-list-view ipc-metadata-list--base"[i], sep = "")
+  link[i] <- paste0("https://imdb.com", link[i], sep = "")
 }
 
 #converting to a dataframe
-links <- as.data.frame("h3.ipc-title__text")
+links <- as.data.frame(link)
 
 rank_title <- data.frame(
-  rank_title = split_df,"h3.ipc-title__text")
+  rank_title = split_df, link)
 
 #combining the dataframe
-scrape_df <- data.frame(rank_title,links,ratings,year,episodes)
-names(scrape_df) <- c("Rank","Title","Link","Ratings","Year","Episodes")
+scrape_df <- data.frame(rank_title,links)
+names(scrape_df) <- c("Rank","Title","Link")
 
 head(scrape_df)
 
@@ -174,19 +130,28 @@ for (row in 1:2) {
   webpage <- scrape(session2)
   
   # Extract the rating using the appropriate CSS selector
-  rating <- html_text(html_nodes(webpage, ".sc-e3e7b191-1 gjM"))
+  rating <- html_text(html_nodes(webpage, ".sc-43986a27-1 fVmjht"))
   rating <- rating[-2]
   
-  #extracting votecount
-  votecount <- html_text(html_nodes(webpage,
-                                    'div.sc-bde20123-3.gPVQxL'))
-  votecount <- votecount[-2]
+  # Extracting vote counts
+  voteScrape <- scrapeNodes("span.ipc-rating-star--voteCount")[1:50]
+  voteScrape <- gsub("[^0-9]", "", voteScrape)
+  voteScrape <- as.numeric(voteScrape) * 1000
   
-  #extracting description
-  movie_desc <- html_text(html_nodes(webpage, 
-                                     '.sc-466bb6c-1.dWufeH'))
-  movie_desc <- movie_desc[-2]
+  # Extracting episode counts
+  episodeScrape <- scrapeNodes("span.sc-479faa3c-8.bNrEFi.cli-title-metadata-item:contains('eps')")[1:50]
+  episodeScrape <- gsub("\\D", "", episodeScrape)
+  episodeScrape <- as.numeric(episodeScrape)
   
+  # Extracting release years
+  yearScrape <- scrapeNodes("span.sc-479faa3c-8.bNrEFi.cli-title-metadata-item:contains('20')")[1:50]
+  yearScrape <- gsub("(\\d{4}).*", "\\1", yearScrape)
+  
+  imdb_additional_info <- data.frame(VoteCount = voteScrape, Episodes = episodeScrape, ReleaseYear = yearScrape)
+  
+  scrape_df_with_additional_info <- cbind(scrape_df, imdb_additional_info)
+  
+  write.csv(scrape_df_with_additional_info, file = "data/scraped_info.csv")
   
   #extracting metascore
   meta_score <- html_text(html_nodes(
@@ -199,10 +164,10 @@ for (row in 1:2) {
   
   #store results
   # Store the results
-  imdb_top_50[current_row,1] <- rank
-  imdb_top_50[current_row,2] <- title
-  imdb_top_50[current_row,3] <- link
-  imdb_top_50[current_row,4] <- rating
+  imdb_top_50[current_row,1] <- rating
+  imdb_top_50[current_row,2] <- votecount
+  imdb_top_50[current_row,3] <- episode
+  imdb_top_50[current_row,4] <- year
   
   
   # Move to the next row
@@ -213,26 +178,25 @@ for (row in 1:2) {
 }
 
 #changing column names
-names(imdb_top_50) <- c("Rating","VoteCount","Description","MetaScore")
+names(imdb_top_50) <- c("Rating","VoteCount","Episodes","Year")
 
 write.csv(imdb_top_50,file = "data/imdb_top_50.csv")
 
 #combine with the previous dataframe
 
-imdb_top_250 <- data.frame(
+imdb_top_50 <- data.frame(
   scrape_df,imdb_top_50)
 
-write.csv(imdb_top_250,file = "data/imdb_top_250.csv")
-
+write.csv(imdb_top_50,file = "data/imdb_top_50.csv")
+write.csv(imdb_top_50_combined, file = "data/imdb_top_50_combined.csv")
 
 # displaying table using kableExtra
 library(kableExtra)
 
 df_d <- imdb_top_250[c(1:2),]
 
-knitr::kable(df_d, caption = "IMDB Top 250 Movies") %>%
+knitr::kable(df_d, caption = "IMDB Top 50 TV Shows") %>%
   kable_classic(full_width = T, html_font = "Arial Narrow") %>%
   kable_styling(font_size = 9)
 
 ################# End #####################################
-             
